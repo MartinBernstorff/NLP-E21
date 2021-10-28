@@ -1,36 +1,65 @@
 from typing import List
-from datasets import load_dataset
 import gensim.downloader as api
+from datasets import load_dataset
+import pandas as pd
+import os
+import pprint as pprint
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 
 # DATASET
 dataset = load_dataset("conllpp")
+
 train = dataset["train"]
 
-# inspect the dataset
-train["tokens"][:1]
-train["ner_tags"][:1]
-num_classes = train.features["ner_tags"].feature.num_classes
+# Inspect the dataset
+train_inspect = pd.DataFrame(train)
+train_inspect["pos_tags"].head()
 
+train["tokens"][0]
+train["ner_tags"][0]
+train["chunk_tags"][0]
+
+# The dataset consists of 5 columns. Each row contains: 
+#   tokens: a sentence (represented as a series), varying length
+#   pos_tags: POS true labels
+#   chunk_tags
+#   ner_tags: NER true labels
+
+num_classes = train.features["ner_tags"].feature.num_classes
 
 # CONVERTING EMBEDDINGS
 import numpy as np
-
 import torch
 
 model = api.load("glove-wiki-gigaword-50")
 
 from embedding import gensim_to_torch_embedding
 
-# convert gensim word embedding to torch word embedding
+# Convert gensim word embedding to torch word embedding
+# Outputs an "embedding layer" and a vocabulary
 embedding_layer, vocab = gensim_to_torch_embedding(model)
 
 
+print(vocab) 
+# Appears vocab is a dict with words as keys and an int as val
+# The ints are ordered, so maybe they're IDs? 
+
+print(model.key_to_index)
+
+
 # PREPARING A BATCH
-
-
 def tokens_to_idx(tokens, vocab=model.key_to_index):
     """
+    Converts tokens to model idx
+
+    Parameters:
+       tokens: An iterable of tokens
+       vocab: A dictionary with words as keys and model-indeces as values
+    
+    Returns:
+        A list of model-indeces for each token # TODO: Beware, is it really a list? Also does something with "UNK"
+
     Ideas to understand this function:
     - Write documentation for this function including type hints for each arguement and return statement
     - What does the .get method do?
@@ -73,7 +102,7 @@ batch_input, batch_labels = torch.LongTensor(batch_input), torch.LongTensor(
 from LSTM import RNN
 
 model = RNN(
-    embedding_layer=embedding_layer, num_classes=num_classes + 1, hidden_dim_size=256
+    embedding_layer=embedding_layer, output_dim=num_classes + 1, hidden_dim_size=256
 )
 
 # FORWARD PASS
