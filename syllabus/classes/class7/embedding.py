@@ -1,15 +1,17 @@
 import torch
 from torch import nn
-
 import numpy as np
 
-
-def gensim_to_torch_embedding(gensim_wv):
+def gensim_to_torch_embedding(gensim_wv: gensim.models.Word2Vec, add_padding = True, add_unkwnown = True) -> nn.Embedding, nn.Embedding:
     """
-    - Add type hints on input and output
-    - add function description
-    - understand the pad and unk embeddings, add an argument which makes these optional. 
-        E.g. add_padding = True and add_unknown = True
+    Converts a gensmim embedding to a pytorch embedding
+
+    Parameters:
+        gensim_wv, a gensim word2vec embedding
+
+    Returns:
+        embedding layer, pytorch embedding
+        vocab, a gensim vocab
     """
     embedding_size = gensim_wv.vectors.shape[1]
 
@@ -26,7 +28,11 @@ def gensim_to_torch_embedding(gensim_wv):
 
     # creating vocabulary
     vocab = gensim_wv.key_to_index
-    vocab["UNK"] = weights.shape[0] - 2
-    vocab["PAD"] = emb_layer.padding_idx
+
+    if add_padding == True:
+        vocab["PAD"] = emb_layer.padding_idx
+
+    if add_unknown == True:
+        vocab["UNK"] = weights.shape[0] - 2
 
     return emb_layer, vocab

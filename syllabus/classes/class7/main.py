@@ -5,8 +5,7 @@ import pandas as pd
 import os
 import pprint as pprint
 import random
-from torch.utils.data import TensorDataset, dataloader
-
+from functions import *
 
 # DATASET
 dataset = load_dataset("conllpp")
@@ -41,16 +40,14 @@ from embedding import gensim_to_torch_embedding
 # Outputs an "embedding layer" and a vocabulary
 embedding_layer, vocab = gensim_to_torch_embedding(model)
 
-
 # print(vocab)
 # Appears vocab is a dict with words as keys and an int as val
 # The ints are ordered, so maybe they're IDs? 
 
-print(model.key_to_index)
-
+# print(model.key_to_index)
 
 # PREPARING A BATCH
-def tokens_to_idx(tokens: list, vocab: dict=model.key_to_index) -> list:
+def tokens_to_idx(tokens: list, vocab: dict) -> list:
     """
     Converts tokens to model idx
 
@@ -76,7 +73,7 @@ def convert_batch_to_longtensors(batch_tokens: list, batch_tags: list):
         Two pytorch longtensors
     """
 
-    batch_tok_idx = [tokens_to_idx(sent) for sent in batch_tokens]
+    batch_tok_idx = [tokens_to_idx(sent, model.key_to_index) for sent in batch_tokens]
     batch_size = len(batch_tokens)
 
     batch_max_len = max([len(s) for s in batch_tok_idx])
@@ -96,29 +93,47 @@ def convert_batch_to_longtensors(batch_tokens: list, batch_tags: list):
         batch_input[i][:size] = tok_idx # Write token id instead of padding
         batch_labels[i][:size] = tags # Write true tag instead of "UNK" tag
 
-    batch_input, batch_labels = torch.LongTensor(batch_input), torch.LongTensor(
-        batch_labels
-    )
+    batch_input, batch_labels = torch.LongTensor(batch_input), torch.LongTensor(batch_labels)
 
     return batch_input, batch_labels
 
-def shuffle_and_batch(tokens: list, tags: list) -> dataloader.DataLoader:
+def shuffle_and_batch(tokens: list, tags: list):
     """
-    Takes two lists of the same dimensions and prepares them for LSTM training
+    Takes two lists of matrices of the same dimensions 
+    and prepares them for LSTM training
 
     Parameters:
         tokens: A list of tokens
         tags: A list of tags
 
     Returns:
-        A pytorch DataLoader
+        batch_tokens, batch_tags: Both are lists of matrices, containing tokens
+            and tags respectively
     """
-    
 
+    coupled_lists = list(zip(tokens, tags))
+    random.shuffle(coupled_lists)
 
-# sample batch of 10 sentences
-batch_tokens = train["tokens"][:10] # List of lists
-batch_tags = train["ner_tags"][:10]
+    tokens, tags = zip(*coupled_lists)
+
+    batch_start = 0 # The current index that divides the previous batch from the current batch
+    batch_size = 10
+    token_batches = []
+    tag_batches = []
+
+    for sent in tokens:
+        token_batches.append(tokens[batch_start:batch_start + batch_size])
+        tag_batches.append(tags[batch_start:batch_start + batch_size])
+
+    return token_batches, tag_batches
+
+# Sample batch of 100 tokens
+example_tokens = train["tokens"][:100] # List of lists
+example_tags = train["ner_tags"][:100]
+
+tokens, tags = shuffle_and_batch(example_tokens, example_tags)
+
+longtensor_X, longtensor_y = convert_batch_to_longtensors(tokens, tags)
 
 # CREATE MODEL
 from LSTM import RNN
